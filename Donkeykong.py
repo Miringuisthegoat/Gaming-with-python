@@ -5,37 +5,53 @@ import random
 pygame.init()
 
 # Screen
-WIDTH = 800
-HEIGHT = 600
+WIDTH, HEIGHT = 900, 700
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Mini Donkey Kong")
-
+pygame.display.set_caption("Retro Donkey Kong")
 clock = pygame.time.Clock()
 
 # Colors
-WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+BROWN = (139, 69, 19)
 BLUE = (50, 100, 255)
 RED = (200, 50, 50)
-BROWN = (139, 69, 19)
-BLACK = (0, 0, 0)
+YELLOW = (255, 215, 0)
+WHITE = (255, 255, 255)
+PINK = (255, 105, 180)
 
-font = pygame.font.SysFont(None, 40)
+font = pygame.font.SysFont("arial", 30)
+big_font = pygame.font.SysFont("arial", 60)
 
 # Player
-player = pygame.Rect(100, 500, 40, 60)
+player = pygame.Rect(100, 600, 40, 60)
 player_vel_y = 0
 gravity = 0.8
 jump_power = -15
 player_speed = 5
 on_ground = False
+climbing = False
+
+# Donkey & Princess
+donkey = pygame.Rect(50, 50, 80, 80)
+princess = pygame.Rect(750, 70, 40, 60)
 
 # Platforms
 platforms = [
-    pygame.Rect(0, 550, 800, 50),
-    pygame.Rect(100, 450, 600, 20),
-    pygame.Rect(0, 350, 600, 20),
-    pygame.Rect(200, 250, 600, 20),
-    pygame.Rect(0, 150, 600, 20),
+    pygame.Rect(0, 650, 900, 50),
+    pygame.Rect(0, 550, 750, 20),
+    pygame.Rect(150, 450, 750, 20),
+    pygame.Rect(0, 350, 750, 20),
+    pygame.Rect(150, 250, 750, 20),
+    pygame.Rect(0, 150, 750, 20),
+]
+
+# Ladders
+ladders = [
+    pygame.Rect(200, 550, 40, 100),
+    pygame.Rect(600, 450, 40, 100),
+    pygame.Rect(200, 350, 40, 100),
+    pygame.Rect(600, 250, 40, 100),
+    pygame.Rect(350, 150, 40, 100),
 ]
 
 # Barrels
@@ -43,40 +59,61 @@ barrels = []
 barrel_timer = 0
 
 score = 0
+lives = 3
 game_over = False
+win = False
 
 
 def spawn_barrel():
-    return pygame.Rect(750, 120, 30, 30)
+    return pygame.Rect(donkey.x + 60, donkey.y + 60, 30, 30)
+
+
+def reset_player():
+    player.x = 100
+    player.y = 600
 
 
 running = True
 while running:
     clock.tick(60)
-    screen.fill(WHITE)
+    screen.fill(BLACK)
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
 
-    if not game_over:
+    if not game_over and not win:
 
-        # Movement
         keys = pygame.key.get_pressed()
+
+        # Horizontal movement
         if keys[pygame.K_LEFT]:
             player.x -= player_speed
         if keys[pygame.K_RIGHT]:
             player.x += player_speed
+
+        # Jump
         if keys[pygame.K_SPACE] and on_ground:
             player_vel_y = jump_power
 
+        # Ladder detection
+        climbing = False
+        for ladder in ladders:
+            if player.colliderect(ladder):
+                climbing = True
+                if keys[pygame.K_UP]:
+                    player.y -= player_speed
+                if keys[pygame.K_DOWN]:
+                    player.y += player_speed
+
         # Gravity
-        player_vel_y += gravity
-        player.y += player_vel_y
-        on_ground = False
+        if not climbing:
+            player_vel_y += gravity
+            player.y += player_vel_y
 
         # Platform collision
+        on_ground = False
         for platform in platforms:
             if player.colliderect(platform) and player_vel_y >= 0:
                 player.bottom = platform.top
@@ -91,41 +128,61 @@ while running:
 
         # Move barrels
         for barrel in barrels:
-            barrel.x -= 4
+            barrel.x += 4
+            barrel.y += gravity
+
+            # Barrel platform collision
+            for platform in platforms:
+                if barrel.colliderect(platform):
+                    barrel.bottom = platform.top
 
         # Remove off-screen barrels
-        barrels = [b for b in barrels if b.x > -50]
+        barrels = [b for b in barrels if b.y < HEIGHT]
 
-        # Collision detection
+        # Barrel collision
         for barrel in barrels:
             if player.colliderect(barrel):
-                game_over = True
+                lives -= 1
+                reset_player()
+                barrels.clear()
+                if lives <= 0:
+                    game_over = True
 
-        # Increase score
-        score += 0.05
+        # Win condition
+        if player.colliderect(princess):
+            win = True
 
-        # Draw platforms
-        for platform in platforms:
-            pygame.draw.rect(screen, BROWN, platform)
+        score += 0.02
 
-        # Draw player
-        pygame.draw.rect(screen, BLUE, player)
+    # Draw platforms
+    for platform in platforms:
+        pygame.draw.rect(screen, BROWN, platform)
 
-        # Draw barrels
-        for barrel in barrels:
-            pygame.draw.rect(screen, RED, barrel)
+    # Draw ladders
+    for ladder in ladders:
+        pygame.draw.rect(screen, YELLOW, ladder)
 
-        # Draw score
-        score_text = font.render(f"Score: {int(score)}", True, BLACK)
-        screen.blit(score_text, (10, 10))
+    # Draw characters
+    pygame.draw.rect(screen, BLUE, player)
+    pygame.draw.rect(screen, RED, donkey)
+    pygame.draw.rect(screen, PINK, princess)
 
-    else:
-        over_text = font.render("GAME OVER", True, RED)
-        score_text = font.render(f"Final Score: {int(score)}", True, BLACK)
-        restart_text = font.render("Close window to exit", True, BLACK)
+    # Draw barrels
+    for barrel in barrels:
+        pygame.draw.rect(screen, WHITE, barrel)
 
-        screen.blit(over_text, (WIDTH // 2 - 100, HEIGHT // 2 - 40))
-        screen.blit(score_text, (WIDTH // 2 - 100, HEIGHT // 2))
-        screen.blit(restart_text, (WIDTH // 2 - 140, HEIGHT // 2 + 40))
+    # UI
+    score_text = font.render(f"Score: {int(score)}", True, WHITE)
+    lives_text = font.render(f"Lives: {lives}", True, WHITE)
+    screen.blit(score_text, (10, 10))
+    screen.blit(lives_text, (10, 40))
+
+    if game_over:
+        over_text = big_font.render("GAME OVER", True, RED)
+        screen.blit(over_text, (WIDTH // 2 - 180, HEIGHT // 2 - 50))
+
+    if win:
+        win_text = big_font.render("YOU SAVED THE PRINCESS!", True, YELLOW)
+        screen.blit(win_text, (WIDTH // 2 - 300, HEIGHT // 2 - 50))
 
     pygame.display.update()
