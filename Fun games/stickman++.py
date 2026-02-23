@@ -160,5 +160,5 @@ while True:
         print("Player 1 Wins!")
         break
 
-    pygame.display.flip()
+    pygame.display.()
     clock.tick(FPS)
